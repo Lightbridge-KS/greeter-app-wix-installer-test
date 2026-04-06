@@ -42,7 +42,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-          include-prerelease: true
 
       # ── Extract version from tag ─────────────────────────────────────
       - name: Extract version
@@ -50,8 +49,14 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          # Strip leading 'v' if present (v1.2.3 -> 1.2.3)
-          $ver = $tag -replace '^v', ''
+          # For workflow_dispatch (no tag), default to 0.0.1-dev
+          if ($tag -notmatch '^v?\d+\.\d+') {
+            $ver = '0.0.1'
+            echo "No version tag detected (ref: $tag). Using default: $ver"
+          } else {
+            # Strip leading 'v' if present (v1.2.3 -> 1.2.3)
+            $ver = $tag -replace '^v', ''
+          }
           # Ensure 4-part version for MSI (1.2.3 -> 1.2.3.0)
           $parts = $ver.Split('.')
           while ($parts.Count -lt 4) { $parts += '0' }
