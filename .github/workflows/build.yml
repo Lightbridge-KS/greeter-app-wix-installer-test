@@ -1,0 +1,115 @@
+# ============================================================================
+# Build & Package GreeterApp as Windows .msi via WiX v4
+# ============================================================================
+#
+# Triggers on version tags (v1.0.0, v2.1.0, etc.)
+# Produces a .msi installer as a GitHub Release asset.
+#
+# Flow:
+#   dotnet publish (win-x64, self-contained, single-file)
+#     -> wix build (produces .msi)
+#       -> upload to GitHub Release
+
+name: Build Windows MSI
+
+on:
+  push:
+    tags: ['v*']
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+permissions:
+  contents: write  # needed for creating releases
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_PATH: src/GreeterApp/GreeterApp.csproj
+  PUBLISH_DIR: ./publish/win-x64
+  INSTALLER_DIR: ./installer
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── .NET Setup ───────────────────────────────────────────────────
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          include-prerelease: true
+
+      # ── Extract version from tag ─────────────────────────────────────
+      - name: Extract version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          # Strip leading 'v' if present (v1.2.3 -> 1.2.3)
+          $ver = $tag -replace '^v', ''
+          # Ensure 4-part version for MSI (1.2.3 -> 1.2.3.0)
+          $parts = $ver.Split('.')
+          while ($parts.Count -lt 4) { $parts += '0' }
+          $msiVer = $parts -join '.'
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "MSI_VERSION=$msiVer" >> $env:GITHUB_OUTPUT
+          echo "Version: $ver, MSI Version: $msiVer"
+
+      # ── Build & Publish ──────────────────────────────────────────────
+      - name: Publish GreeterApp
+        run: >
+          dotnet publish ${{ env.PROJECT_PATH }}
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:Version=${{ steps.version.outputs.VERSION }}
+          -o ${{ env.PUBLISH_DIR }}
+
+      # ── Install WiX v4 ──────────────────────────────────────────────
+      - name: Install WiX Toolset v4
+        run: dotnet tool install --global wix
+
+      # ── Add WiX extensions ──────────────────────────────────────────
+      - name: Add WiX extensions
+        run: |
+          wix extension add WixToolset.UI.wixext
+          wix extension add WixToolset.Util.wixext
+
+      # ── Build .msi ──────────────────────────────────────────────────
+      - name: Build MSI installer
+        shell: pwsh
+        run: |
+          $publishDir = Resolve-Path "${{ env.PUBLISH_DIR }}"
+          $installerDir = Resolve-Path "${{ env.INSTALLER_DIR }}"
+
+          wix build `
+            "${{ env.INSTALLER_DIR }}/Package.wxs" `
+            "${{ env.INSTALLER_DIR }}/ConfigDialog.wxs" `
+            -ext WixToolset.UI.wixext `
+            -ext WixToolset.Util.wixext `
+            -d PublishDir="$publishDir" `
+            -d InstallerDir="$installerDir" `
+            -d APP_VERSION="${{ steps.version.outputs.VERSION }}" `
+            -o ./output/GreeterApp-${{ steps.version.outputs.VERSION }}.msi
+
+      # ── Upload build artifact ────────────────────────────────────────
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GreeterApp-MSI-${{ steps.version.outputs.VERSION }}
+          path: ./output/GreeterApp-*.msi
+
+      # ── Create GitHub Release ────────────────────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ./output/GreeterApp-*.msi
+          generate_release_notes: true

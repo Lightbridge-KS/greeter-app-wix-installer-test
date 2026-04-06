@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Custom dialog that collects Greeting and Recipient from the user.
+  Inserted between InstallDirDlg and VerifyReadyDlg in the UI sequence.
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <UI>
+    <Dialog Id="ConfigDlg" Width="370" Height="270" Title="[ProductName] Configuration">
+
+      <!-- Header area -->
+      <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15"
+               Transparent="yes" NoPrefix="yes"
+               Text="{\WixUI_Font_Title}Application Settings" />
+      <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15"
+               Transparent="yes" NoPrefix="yes"
+               Text="Configure the greeting message for your installation." />
+      <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+
+      <!-- Greeting input -->
+      <Control Id="GreetingLabel" Type="Text" X="20" Y="65" Width="100" Height="15"
+               NoPrefix="yes" Text="&amp;Greeting:" />
+      <Control Id="GreetingEdit" Type="Edit" X="20" Y="80" Width="320" Height="18"
+               Property="GREETING" Text="{80}" />
+      <Control Id="GreetingHint" Type="Text" X="20" Y="102" Width="320" Height="10"
+               NoPrefix="yes" Text="e.g. Hello, Hi, Welcome" />
+
+      <!-- Recipient input -->
+      <Control Id="RecipientLabel" Type="Text" X="20" Y="125" Width="100" Height="15"
+               NoPrefix="yes" Text="&amp;Recipient:" />
+      <Control Id="RecipientEdit" Type="Edit" X="20" Y="140" Width="320" Height="18"
+               Property="RECIPIENT" Text="{80}" />
+      <Control Id="RecipientHint" Type="Text" X="20" Y="162" Width="320" Height="10"
+               NoPrefix="yes" Text="e.g. Ramathibodi Hospital, World" />
+
+      <!-- Bottom separator -->
+      <Control Id="BottomLine" Type="Line" X="0" Y="224" Width="370" Height="0" />
+
+      <!-- Navigation buttons -->
+      <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17"
+               Text="&amp;Back">
+        <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
+      </Control>
+      <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17"
+               Default="yes" Text="&amp;Next">
+        <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      </Control>
+      <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17"
+               Cancel="yes" Text="Cancel">
+        <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+      </Control>
+
+    </Dialog>
+  </UI>
+</Wix>

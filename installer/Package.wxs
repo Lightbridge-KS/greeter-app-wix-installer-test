@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  WiX v4 Package Definition for GreeterApp
+  
+  Key concepts:
+  - Properties (GREETING, RECIPIENT) are set by the UI dialog or command line
+  - A deferred custom action runs PowerShell post-install to patch appsettings.json
+  - WixUI_InstallDir provides the base installer UI; we insert a custom dialog
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- ================================================================== -->
+  <!-- Product metadata                                                    -->
+  <!-- ================================================================== -->
+  <Package Name="GreeterApp"
+           Manufacturer="Radiology AI Unit"
+           Version="!(bind.fileVersion.GreeterApp.exe)"
+           UpgradeCode="E7A83C01-4F2D-4B9A-8D1E-6F3A5B7C9D0E"
+           Scope="perMachine"
+           Language="1033">
+
+    <!-- Allow major upgrades, remove old version first -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <!-- Embed CAB into .msi for single-file distribution -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ================================================================ -->
+    <!-- Public properties (exposed to UI and command line)                -->
+    <!--   msiexec /i GreeterApp.msi GREETING="Hi" RECIPIENT="Hospital"   -->
+    <!-- ================================================================ -->
+    <Property Id="GREETING"  Value="Hello" />
+    <Property Id="RECIPIENT" Value="World" />
+    <Property Id="APP_VERSION" Value="$(var.APP_VERSION)" />
+
+    <!-- Pass WIXUI_INSTALLDIR so WixUI_InstallDir knows which dir to use -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <!-- ================================================================ -->
+    <!-- Directory layout                                                  -->
+    <!-- ================================================================ -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="GreeterApp">
+        <Directory Id="ScriptsFolder" Name="scripts" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- ================================================================ -->
+    <!-- Application files                                                 -->
+    <!-- ================================================================ -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+
+      <!-- Main executable -->
+      <Component Id="MainExe">
+        <File Id="GreeterApp.exe" Source="$(var.PublishDir)\GreeterApp.exe" KeyPath="yes" />
+      </Component>
+
+      <!-- Config file (template with placeholders) -->
+      <Component Id="AppSettings" Guid="B2C3D4E5-F6A7-8901-BCDE-F12345678901">
+        <File Id="appsettings.json" Source="$(var.PublishDir)\appsettings.json" KeyPath="yes" />
+      </Component>
+
+      <!-- Harvest remaining publish output (DLLs, runtime files) -->
+      <!-- In a real project, use HeatDirectory or wix glob. For this   -->
+      <!-- minimal example we rely on self-contained single-file publish -->
+
+    </ComponentGroup>
+
+    <!-- PowerShell script for config patching -->
+    <ComponentGroup Id="ScriptFiles" Directory="ScriptsFolder">
+      <Component Id="SetAppSettingsScript">
+        <File Id="Set_AppSettings.ps1"
+              Source="$(var.InstallerDir)\scripts\Set-AppSettings.ps1"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ================================================================ -->
+    <!-- Custom action: patch appsettings.json with user-provided values  -->
+    <!-- ================================================================ -->
+
+    <!-- Build the command line string (evaluated at schedule time) -->
+    <SetProperty Id="PatchConfig"
+                 Before="PatchConfig"
+                 Sequence="execute"
+                 Value="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\Set-AppSettings.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]appsettings.json&quot; -Greeting &quot;[GREETING]&quot; -Recipient &quot;[RECIPIENT]&quot; -AppVersion &quot;[APP_VERSION]&quot;" />
+
+    <!-- Deferred + impersonated so it runs with proper file access -->
+    <CustomAction Id="PatchConfig"
+                  DllEntry="WixQuietExec"
+                  Impersonate="yes"
+                  BinaryRef="Wix4UtilCA_X86"
+                  Execute="deferred"
+                  Return="check" />
+
+    <!-- Schedule the custom action after files are installed -->
+    <InstallExecuteSequence>
+      <Custom Action="PatchConfig" After="InstallFiles">
+        NOT Installed OR REINSTALL
+      </Custom>
+    </InstallExecuteSequence>
+
+    <!-- ================================================================ -->
+    <!-- Features                                                          -->
+    <!-- ================================================================ -->
+    <Feature Id="Main" Title="GreeterApp" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="ScriptFiles" />
+    </Feature>
+
+    <!-- ================================================================ -->
+    <!-- UI: WixUI_InstallDir + our custom config dialog                  -->
+    <!-- ================================================================ -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+
+    <!-- Insert ConfigDlg into the UI sequence (defined in ConfigDialog.wxs) -->
+    <UI>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ConfigDlg" Order="2">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ConfigDlg" Order="2">1</Publish>
+    </UI>
+
+  </Package>
+</Wix>
