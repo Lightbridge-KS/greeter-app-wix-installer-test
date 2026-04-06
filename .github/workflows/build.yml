@@ -83,8 +83,8 @@ jobs:
       # ── Add WiX extensions ──────────────────────────────────────────
       - name: Add WiX extensions
         run: |
-          wix extension add WixToolset.UI.wixext
-          wix extension add WixToolset.Util.wixext
+          wix extension add WixToolset.UI.wixext/4.0.5
+          wix extension add WixToolset.Util.wixext/4.0.5
 
       # ── Build .msi ──────────────────────────────────────────────────
       - name: Build MSI installer
