@@ -78,7 +78,7 @@ jobs:
 
       # ── Install WiX v4 ──────────────────────────────────────────────
       - name: Install WiX Toolset v4
-        run: dotnet tool install --global wix
+        run: dotnet tool install --global wix --version 4.0.*
 
       # ── Add WiX extensions ──────────────────────────────────────────
       - name: Add WiX extensions
